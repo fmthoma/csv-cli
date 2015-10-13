@@ -5,6 +5,7 @@ module Text.Csv (
   , module Text.Csv.Pretty
   , module Text.Csv.Types
 
+  , printCsv
 ) where
 
 import           Data.Text (Text)
