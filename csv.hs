@@ -39,8 +39,8 @@ main = do
     m <- options "Filters and pretty-prints CSV files" mode
     case m of
         Columns -> do
-            Csv (Header h, _) <- fmap (either error id . parseCsv) T.getContents
-            traverse_ T.putStrLn h
+            csv <- fmap doParseCsv T.getContents
+            traverse_ T.putStrLn . getColumns . getHeader $ csv
 
         Filter pattern ->
             undefined
@@ -50,6 +50,9 @@ main = do
 
         Select cols -> do
             let selectedCols = fmap T.strip (T.splitOn "," cols)
-            baseCsv <- fmap (either error id . parseCsv) T.getContents
+            baseCsv <- fmap doParseCsv T.getContents
             let (Just filteredCsv) = filterCols selectedCols baseCsv
             (T.putStr . T.unlines . printCsv) filteredCsv
+  where
+    doParseCsv :: Text -> Csv Text
+    doParseCsv = either error id . parseCsv

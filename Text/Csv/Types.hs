@@ -1,16 +1,23 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Text.Csv.Types (
-    Csv (..)
-  , Header (..)
+    Csv ()
+  , fromList
+  , getHeader
+  , getRecords
+  , toList
+
+  , Header ()
   , header
-  , Record (..)
+  , getColumns
+
+  , Record ()
   , record
   , records
+  , getFields
 
   , filterCols
   , filterRows
-  , toList
 ) where
 
 
@@ -21,11 +28,26 @@ import qualified Data.Vector as V
 
 newtype Csv a = Csv (Header a, [Record a]) deriving (Eq, Ord, Show)
 
+fromList :: [[a]] -> Csv a
+fromList (h:rs) = Csv (header h, records rs)
+
+getHeader :: Csv a -> Header a
+getHeader (Csv (h, _)) = h
+
+getRecords :: Csv a -> [Record a]
+getRecords (Csv (_, rs)) = rs
+
+toList :: Csv a -> [[a]]
+toList (Csv (h, rs)) = getColumns h : map getFields rs
+
 
 newtype Header a = Header (Vector a) deriving (Eq, Ord, Show, Functor)
 
 header :: [a] -> Header a
 header = Header . V.fromList
+
+getColumns :: Header a -> [a]
+getColumns (Header h) = V.toList h
 
 
 newtype Record a = Record (Vector a) deriving (Eq, Ord, Show, Functor)
@@ -35,6 +57,9 @@ record = Record . V.fromList
 
 records :: [[a]] -> [Record a]
 records = map record
+
+getFields :: Record a -> [a]
+getFields (Record r) = V.toList r
 
 
 
@@ -51,7 +76,3 @@ filterRows :: (Record a -> Bool) -> Csv a -> Csv a
 filterRows p (Csv (header, records)) = Csv ( header
                                            , filter p records
                                            )
-
-toList :: Csv a -> [[a]]
-toList (Csv (Header header, records)) =
-    V.toList header : map (\(Record rec) -> V.toList rec) records

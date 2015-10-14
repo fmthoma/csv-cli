@@ -23,7 +23,7 @@ csv = do
     hd <- record <* endOfLine
     recs <- record `sepBy'` endOfLine
     endOfInput
-    return $ Csv (Csv.header hd, Csv.records recs)
+    return $ Csv.fromList (hd:recs)
 
 record :: Parser [Text]
 record = (quotedField <|> field) `sepBy` char ','
