@@ -6,9 +6,11 @@ import           Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.IO as T
 import qualified Data.Text.Lazy as T
 
+import Prelude hiding (FilePath)
 import Text.Csv
 import Turtle hiding (Text)
 import Data.Optional
+import Filesystem.Path.CurrentOS
 
 import Options.Applicative as Opt
 
@@ -18,8 +20,8 @@ data Mode
     | Pretty
     | Select { cols :: Text }
 
-mode :: Parser Mode
-mode = subparser (columns <> filter <> pretty <> select)
+mode :: Parser (Mode, Maybe FilePath)
+mode = subparser (columns <> filter <> pretty <> select) |&| file
   where
     columns = command "columns" $ info
         (pure Columns)
@@ -33,22 +35,29 @@ mode = subparser (columns <> filter <> pretty <> select)
     select = command "select" $ info
         (liftA (Select . T.fromStrict) (argText "columns" "A comma-separated list of columns"))
         mempty
+    (|&|) :: Applicative f => f a -> f b -> f (a, b)
+    (|&|)= liftA2 (,)
 
+file :: Parser (Maybe FilePath)
+file = optional (argPath "file" Default)
 
 main = do
-    m <- options "Filters and pretty-prints CSV files" mode
+    (m, f) <- options "Filters and pretty-prints CSV files" mode
+    input <- case f of
+        Just file -> T.readFile (encodeString file)
+        Nothing   -> T.getContents
     case m of
-        Columns -> withCsv (getColumns . getHeader)
+        Columns -> withCsv input (getColumns . getHeader)
 
         Filter pattern -> undefined
 
-        Pretty -> withCsv align
+        Pretty -> withCsv input align
 
-        Select cols -> withCsv $ \baseCsv ->
+        Select cols -> withCsv input $ \baseCsv ->
             let selectedCols = fmap T.strip (T.splitOn "," cols)
                 (Just filteredCsv) = filterCols selectedCols baseCsv
             in  printCsv filteredCsv
 
 
-withCsv :: (Csv Text -> [Text]) -> IO ()
-withCsv action = T.interact (T.unlines . action . parseCsv . T.lines)
+withCsv :: Text -> (Csv Text -> [Text]) -> IO ()
+withCsv input action = (T.putStr . T.unlines . action . parseCsv . T.lines) input
