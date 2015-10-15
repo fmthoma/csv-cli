@@ -72,7 +72,13 @@ filterCols cols (Csv (Header header, records)) = do
   where
     keep colIndices = V.ifilter (\i _ -> i `elem` colIndices)
 
-filterRows :: (Record a -> Bool) -> Csv a -> Csv a
-filterRows p (Csv (header, records)) = Csv ( header
-                                           , filter p records
-                                           )
+filterRows :: Eq a => a -> (a -> Bool) -> Csv a -> Csv a
+filterRows col p csv@(Csv (Header header, _)) =
+    let (Just colIndex) = V.findIndex (== col) header
+        colPred (Record rec) = p (rec V.! colIndex)
+    in  filterRows' colPred csv
+
+filterRows' :: (Record a -> Bool) -> Csv a -> Csv a
+filterRows' p (Csv (header, records)) = Csv ( header
+                                            , filter p records
+                                            )

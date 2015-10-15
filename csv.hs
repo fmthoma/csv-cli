@@ -49,7 +49,10 @@ main = do
     case m of
         Columns -> withCsv input (getColumns . getHeader)
 
-        Filter pattern -> undefined
+        Filter pattern -> withCsv input $ \baseCsv ->
+            let (column, value) = T.tail <$> T.breakOn "=" pattern
+                filteredCsv = filterRows column (== value) baseCsv
+            in printCsv filteredCsv
 
         Pretty -> withCsv input align
 
