@@ -8,8 +8,8 @@ module Text.Csv (
   , printCsv
 ) where
 
-import           Data.Text (Text)
-import qualified Data.Text as T
+import           Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as T
 import qualified Data.Vector as V
 
 import Text.Csv.Parser

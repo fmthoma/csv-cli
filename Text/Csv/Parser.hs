@@ -6,23 +6,26 @@ module Text.Csv.Parser (
 ) where
 
 import           Control.Applicative
-import           Data.Attoparsec.Text
-import qualified Data.Text as T
-import           Data.Text (Text)
+import           Data.Attoparsec.Text.Lazy
+import qualified Data.Text.Lazy as T
+import           Data.Text.Lazy (Text)
 
 import qualified Text.Csv.Types as Csv
 import           Text.Csv.Types (Csv(..), Record, Header)
 
 
 
-parseCsv :: Text -> Either String (Csv Text)
-parseCsv = parseOnly csv
+parseCsv :: [Text] -> Csv Text
+parseCsv = Csv.fromList . fmap doParseRecord
+  where
+    doParseRecord line = case parse (record <* endOfInput) line of
+        Fail _ _ msg -> [T.empty]
+        Done _ csv   -> csv
 
 csv :: Parser (Csv Text)
 csv = do
     hd <- record <* endOfLine
     recs <- record `sepBy'` endOfLine
-    endOfInput
     return $ Csv.fromList (hd:recs)
 
 record :: Parser [Text]

@@ -2,12 +2,12 @@
 
 import           Data.Foldable
 import qualified Data.List as L
-import           Data.Text (Text)
-import qualified Data.Text.IO as T
-import qualified Data.Text as T
+import           Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy.IO as T
+import qualified Data.Text.Lazy as T
 
 import Text.Csv
-import Turtle
+import Turtle hiding (Text)
 import Data.Optional
 
 import Options.Applicative as Opt
@@ -25,13 +25,13 @@ mode = subparser (columns <> filter <> pretty <> select)
         (pure Columns)
         mempty
     filter = command "filter" $ info
-        (liftA Filter (argText "pattern" Default))
+        (liftA (Filter . T.fromStrict) (argText "pattern" Default))
         mempty
     pretty = command "pretty" $ info
         (pure Pretty)
         mempty
     select = command "select" $ info
-        (liftA Select (argText "columns" "A comma-separated list of columns"))
+        (liftA (Select . T.fromStrict) (argText "columns" "A comma-separated list of columns"))
         mempty
 
 
@@ -46,7 +46,7 @@ main = do
             undefined
 
         Pretty ->
-            T.interact (T.unlines . align . either error id . parseCsv)
+            T.interact (T.unlines . align . parseCsv . T.lines)
 
         Select cols -> do
             let selectedCols = fmap T.strip (T.splitOn "," cols)
@@ -55,4 +55,4 @@ main = do
             (T.putStr . T.unlines . printCsv) filteredCsv
   where
     doParseCsv :: Text -> Csv Text
-    doParseCsv = either error id . parseCsv
+    doParseCsv = parseCsv . T.lines

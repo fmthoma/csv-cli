@@ -6,9 +6,9 @@ module Text.Csv.Pretty (
 ) where
 
 import qualified Data.List as L
-import           Data.Text (Text)
-import qualified Data.Text.IO as T
-import qualified Data.Text as T
+import           Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy.IO as T
+import qualified Data.Text.Lazy as T
 
 import Text.Csv.Types
 
@@ -45,7 +45,7 @@ alignCol cells = fmap (pad maxLength) cells
     pad l s = s `T.append` T.replicate (l - T.length s) " "
 
 breakLong :: Int -> Text -> [Text]
-breakLong lim s = if T.length s >= lim
-    then let (s', rest) = T.splitAt lim s
+breakLong lim s = if T.length s >= fromIntegral lim
+    then let (s', rest) = T.splitAt (fromIntegral lim) s
          in  s : breakLong lim rest
     else [s]
