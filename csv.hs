@@ -38,21 +38,17 @@ mode = subparser (columns <> filter <> pretty <> select)
 main = do
     m <- options "Filters and pretty-prints CSV files" mode
     case m of
-        Columns -> do
-            csv <- fmap doParseCsv T.getContents
-            traverse_ T.putStrLn . getColumns . getHeader $ csv
+        Columns -> withCsv (getColumns . getHeader)
 
-        Filter pattern ->
-            undefined
+        Filter pattern -> undefined
 
-        Pretty ->
-            T.interact (T.unlines . align . parseCsv . T.lines)
+        Pretty -> withCsv align
 
-        Select cols -> do
+        Select cols -> withCsv $ \baseCsv ->
             let selectedCols = fmap T.strip (T.splitOn "," cols)
-            baseCsv <- fmap doParseCsv T.getContents
-            let (Just filteredCsv) = filterCols selectedCols baseCsv
-            (T.putStr . T.unlines . printCsv) filteredCsv
-  where
-    doParseCsv :: Text -> Csv Text
-    doParseCsv = parseCsv . T.lines
+                (Just filteredCsv) = filterCols selectedCols baseCsv
+            in  printCsv filteredCsv
+
+
+withCsv :: (Csv Text -> [Text]) -> IO ()
+withCsv action = T.interact (T.unlines . action . parseCsv . T.lines)
