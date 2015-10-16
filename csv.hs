@@ -19,7 +19,7 @@ import Text.Csv
 data Command
     = Columns
     | Filter { pattern :: Text }
-    | Pretty { maxWidth :: Maybe Int }
+    | Pretty { ppOptions :: PrettyPrintOptions }
     | Select { cols :: Text }
 
 mode :: Parser (Command, Maybe FilePath)
@@ -35,8 +35,9 @@ mode = liftA2 (,) subcommand file
             (argText "pattern" "<col>=<value>: Keep only rows where <col> is equal to <value>")
 
     pretty = command "pretty" "Pretty-print a csv file to a more human-readable table" $
-        liftA Pretty
+        liftA Pretty $ liftA2 PPOpt
             (optional (optInt "max-width" 'w' "Break long lines after a number of characters"))
+            (optional (optInt "repeat-header" 'r' "Repeat header after n lines"))
 
     select = command "select" "Show only selected columns." $
         liftA (Select . T.fromStrict)
@@ -48,6 +49,7 @@ mode = liftA2 (,) subcommand file
 
 file :: Parser (Maybe FilePath)
 file = optional (argPath "file" "Read csv data from a file. If no file is specified, read from stdin instead")
+
 
 main = do
     (command, maybeFile) <- options "Filters and pretty-prints CSV files" mode
@@ -68,9 +70,7 @@ runCommand Filter {..}
         in printCsv filteredCsv
 
 runCommand Pretty {..}
-    = case maxWidth of
-        Just w  -> withCsv (alignMaxWidth w)
-        Nothing -> withCsv align
+    = withCsv (prettyPrint ppOptions)
 
 runCommand Select {..}
     = withCsv $ \baseCsv ->

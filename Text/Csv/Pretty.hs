@@ -1,13 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Text.Csv.Pretty (
-    align
-  , alignMaxWidth
+    PrettyPrintOptions(..)
+  , prettyPrint
 ) where
 
 import qualified Data.List as L
 import           Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy.IO as T
 import qualified Data.Text.Lazy as T
 import           Data.Monoid
 
@@ -15,16 +15,38 @@ import Text.Csv.Types
 
 
 
-align :: Csv Text -> [Text]
-align = map (T.intercalate " ") . alignCols . toList
+data PrettyPrintOptions
+    = PPOpt { maxWidth :: Maybe Int
+            , repeatHeader :: Maybe Int
+            }
 
-alignMaxWidth :: Int -> Csv Text -> [Text]
-alignMaxWidth w = map (T.intercalate " ") . alignCols . breakLongLines . toList
+prettyPrint :: PrettyPrintOptions -> Csv Text -> [Text]
+prettyPrint PPOpt{..} csv =
+    let aligned = align maxWidth csv
+        hd = head aligned
+        bd = tail aligned
+    in  formatRepeatedHeader repeatHeader hd bd
+
+
+
+
+formatRepeatedHeader :: Maybe Int -> Text -> [Text] -> [Text]
+formatRepeatedHeader maybeRepeat hd bd = case maybeRepeat of
+    Nothing -> hd : sep : bd
+    Just n  -> sep : hd : sep : take n bd
+            ++ formatRepeatedHeader (Just n) hd (drop n bd)
   where
-    breakLongLines :: [[Text]] -> [[Text]]
-    breakLongLines [] = []
-    breakLongLines (l:ls) = (transpose . fmap (breakLong w)) l ++ breakLongLines ls
+    sep = T.replicate (T.length hd) "═"
 
+align :: Maybe Int -> Csv Text -> [Text]
+align Nothing
+    = map (T.intercalate " ") . alignCols . toList
+
+align (Just w)
+    = \csv ->
+        let breakHeader = fmap (T.take (fromIntegral w)) . getColumns . getHeader
+            breakBody = breakLongLines w . fmap getFields . getRecords
+        in  (map (T.intercalate " ") . alignCols) (breakHeader csv : breakBody csv)
 
 
 alignCols :: [[Text]] -> [[Text]]
@@ -45,10 +67,14 @@ alignCol cells = fmap (pad maxLength) cells
     maxLength = maximum (map T.length cells)
     pad l s = s `T.append` T.replicate (l - T.length s) " "
 
-breakLong :: Int -> Text -> [Text]
-breakLong lim s = if T.length s >= fromIntegral lim
+breakLongLines :: Int -> [[Text]] -> [[Text]]
+breakLongLines _ [] = []
+breakLongLines w (l:ls) = (transpose . fmap (breakLongLine w)) l ++ breakLongLines w ls
+
+breakLongLine :: Int -> Text -> [Text]
+breakLongLine lim s = if T.length s >= fromIntegral lim
     then let (s', rest) = breakWords s
-         in  s' : breakLong lim rest
+         in  s' : breakLongLine lim rest
     else [s]
   where
     wordBoundaries = ".,;:| " :: String
