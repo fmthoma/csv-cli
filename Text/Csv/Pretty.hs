@@ -51,12 +51,13 @@ breakLong lim s = if T.length s >= fromIntegral lim
          in  s' : breakLong lim rest
     else [s]
   where
+    wordBoundaries = ".,;:| " :: String
+
     breakWords :: Text -> (Text, Text)
     breakWords s = let (l, r) = forceBreak s
                        (l1, r1) = spanEnd (not . (`elem` wordBoundaries)) l
                    in  if T.null l1 then (l, r) else (l1, r1 <> r)
 
-    wordBoundaries = [',',' ']
     spanEnd :: (Char -> Bool) -> Text -> (Text, Text)
     spanEnd p s = let (r, l) = T.span p (T.reverse s)
                   in  (T.reverse l, T.reverse r)
