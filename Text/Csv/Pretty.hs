@@ -44,8 +44,8 @@ align Nothing
 
 align (Just w)
     = \csv ->
-        let breakHeader = fmap (T.take (fromIntegral w)) . getColumns . getHeader
-            breakBody = breakLongLines w . fmap getFields . getRecords
+        let breakHeader = truncateLongLines w . getColumns . getHeader
+            breakBody   = breakLongLines w . fmap getFields . getRecords
         in  (map (T.intercalate " ") . alignCols) (breakHeader csv : breakBody csv)
 
 
@@ -66,6 +66,9 @@ alignCol cells = fmap (pad maxLength) cells
   where
     maxLength = maximum (map T.length cells)
     pad l s = s `T.append` T.replicate (l - T.length s) " "
+
+truncateLongLines :: Int -> [Text] -> [Text]
+truncateLongLines w = fmap (T.take (fromIntegral w))
 
 breakLongLines :: Int -> [[Text]] -> [[Text]]
 breakLongLines _ [] = []
