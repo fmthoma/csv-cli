@@ -21,8 +21,9 @@ data Mode
     | Select { cols :: Text }
 
 mode :: Parser (Mode, Maybe FilePath)
-mode = subparser (columns <> filter <> pretty <> select) |&| file
+mode =  liftA2 (,) subcommand file
   where
+    subcommand = subparser (columns <> filter <> pretty <> select)
     columns = command "columns" $ info
         (pure Columns)
         mempty
@@ -35,8 +36,6 @@ mode = subparser (columns <> filter <> pretty <> select) |&| file
     select = command "select" $ info
         (liftA (Select . T.fromStrict) (argText "columns" "A comma-separated list of columns"))
         mempty
-    (|&|) :: Applicative f => f a -> f b -> f (a, b)
-    (|&|)= liftA2 (,)
 
 file :: Parser (Maybe FilePath)
 file = optional (argPath "file" Default)
