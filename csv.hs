@@ -17,7 +17,7 @@ import Options.Applicative as Opt
 data Mode
     = Columns
     | Filter { pattern :: Text }
-    | Pretty
+    | Pretty { maxWidth :: Maybe Int }
     | Select { cols :: Text }
 
 mode :: Parser (Mode, Maybe FilePath)
@@ -31,7 +31,7 @@ mode =  liftA2 (,) subcommand file
         (liftA (Filter . T.fromStrict) (argText "pattern" Default))
         mempty
     pretty = command "pretty" $ info
-        (pure Pretty)
+        (liftA Pretty (optional (optInt "max-width" 'w' Default)))
         mempty
     select = command "select" $ info
         (liftA (Select . T.fromStrict) (argText "columns" "A comma-separated list of columns"))
@@ -53,7 +53,9 @@ main = do
                 filteredCsv = filterRows column (== value) baseCsv
             in printCsv filteredCsv
 
-        Pretty -> withCsv input align
+        Pretty maxWidth -> case maxWidth of
+            Just w  -> withCsv input (alignMaxWidth w)
+            Nothing -> withCsv input align
 
         Select cols -> withCsv input $ \baseCsv ->
             let selectedCols = fmap T.strip (T.splitOn "," cols)
