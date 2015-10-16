@@ -1,29 +1,29 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
+import           Prelude hiding (FilePath)
 import           Control.Applicative
 import           Data.Foldable
 import qualified Data.List as L
 import           Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.IO as T
 import qualified Data.Text.Lazy as T
-
-import Prelude hiding (FilePath)
-import Text.Csv
-import Turtle hiding (Text)
-import Data.Optional
-import Filesystem.Path.CurrentOS
-
+import           Data.Optional
+import           Filesystem.Path.CurrentOS
 import qualified Options.Applicative as Opt
+import           Turtle hiding (Text)
 
-data Mode
+import Text.Csv
+
+
+data Command
     = Columns
     | Filter { pattern :: Text }
     | Pretty { maxWidth :: Maybe Int }
     | Select { cols :: Text }
 
-mode :: Parser (Mode, Maybe FilePath)
-mode =  liftA2 (,) subcommand file
+mode :: Parser (Command, Maybe FilePath)
+mode = liftA2 (,) subcommand file
   where
     subcommand = Opt.subparser (columns <> filter <> pretty <> select)
 
@@ -32,7 +32,7 @@ mode =  liftA2 (,) subcommand file
 
     filter = command "filter" "Filter rows of a csv file." $
         liftA (Filter . T.fromStrict)
-            (argText "pattern" "<col>=<value>\nKeep only rows where <col> is equal to <value>")
+            (argText "pattern" "<col>=<value>: Keep only rows where <col> is equal to <value>")
 
     pretty = command "pretty" "Pretty-print a csv file to a more human-readable table" $
         liftA Pretty
@@ -50,14 +50,14 @@ file :: Parser (Maybe FilePath)
 file = optional (argPath "file" "Read csv data from a file. If no file is specified, read from stdin instead")
 
 main = do
-    (m, f) <- options "Filters and pretty-prints CSV files" mode
-    input <- case f of
+    (command, maybeFile) <- options "Filters and pretty-prints CSV files" mode
+    input <- case maybeFile of
         Just file -> T.readFile (encodeString file)
         Nothing   -> T.getContents
-    runCommand m input
+    runCommand command input
 
 
-runCommand :: Mode -> Text -> IO ()
+runCommand :: Command -> Text -> IO ()
 runCommand Columns
     = withCsv (getColumns . getHeader)
 
