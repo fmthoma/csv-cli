@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 import           Control.Applicative
 import           Data.Foldable
@@ -53,23 +54,30 @@ main = do
     input <- case f of
         Just file -> T.readFile (encodeString file)
         Nothing   -> T.getContents
-    case m of
-        Columns -> withCsv input (getColumns . getHeader)
-
-        Filter pattern -> withCsv input $ \baseCsv ->
-            let (column, value) = T.tail <$> T.breakOn "=" pattern
-                filteredCsv = filterRows column (== value) baseCsv
-            in printCsv filteredCsv
-
-        Pretty maxWidth -> case maxWidth of
-            Just w  -> withCsv input (alignMaxWidth w)
-            Nothing -> withCsv input align
-
-        Select cols -> withCsv input $ \baseCsv ->
-            let selectedCols = fmap T.strip (T.splitOn "," cols)
-                (Just filteredCsv) = filterCols selectedCols baseCsv
-            in  printCsv filteredCsv
+    runCommand m input
 
 
-withCsv :: Text -> (Csv Text -> [Text]) -> IO ()
-withCsv input action = (T.putStr . T.unlines . action . parseCsv . T.lines) input
+runCommand :: Mode -> Text -> IO ()
+runCommand Columns
+    = withCsv (getColumns . getHeader)
+
+runCommand Filter {..}
+    = withCsv $ \baseCsv ->
+        let (column, value) = T.tail <$> T.breakOn "=" pattern
+            filteredCsv = filterRows column (== value) baseCsv
+        in printCsv filteredCsv
+
+runCommand Pretty {..}
+    = case maxWidth of
+        Just w  -> withCsv (alignMaxWidth w)
+        Nothing -> withCsv align
+
+runCommand Select {..}
+    = withCsv $ \baseCsv ->
+        let selectedCols = fmap T.strip (T.splitOn "," cols)
+            (Just filteredCsv) = filterCols selectedCols baseCsv
+        in  printCsv filteredCsv
+
+
+withCsv :: (Csv Text -> [Text]) -> Text -> IO ()
+withCsv action = T.putStr . T.unlines . action . parseCsv . T.lines
