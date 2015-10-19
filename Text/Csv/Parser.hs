@@ -35,9 +35,9 @@ quotedField :: Parser Text
 quotedField = T.pack <$> (between '"' textWithEscapedQuotes)
   where
     between c p = char c *> p <* char c
-    textWithEscapedQuotes = many (notAQuote <|> escapedQuote)
+    textWithEscapedQuotes = many (escapedQuote <|> notAQuote)
     notAQuote = notChar '"'
-    escapedQuote = string "\"\"" *> return '"'
+    escapedQuote = (string "\"\"" <|> string "\\\"") *> return '"'
 
 field :: Parser Text
 field = T.pack <$> many (satisfy (notInClass "\r\n\","))
