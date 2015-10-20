@@ -5,6 +5,7 @@ import           Prelude hiding (FilePath)
 import           Control.Applicative
 import           Data.Foldable
 import qualified Data.List as L
+import           Data.Monoid
 import           Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.IO as T
 import qualified Data.Text.Lazy as T
@@ -22,17 +23,15 @@ data Command
     | Pretty { ppOptions :: PrettyPrintOptions }
     | Select { cols :: Text }
 
-mode :: Parser (Command, Maybe FilePath)
-mode = liftA2 (,) subcommand file
+mode :: Opt.Parser (Command, Maybe FilePath)
+mode = Opt.subparser (columns <> filter <> pretty <> select)
   where
-    subcommand = Opt.subparser (columns <> filter <> pretty <> select)
-
     columns = command "columns" "Show columns of a csv file." $
         pure Columns
 
     filter = command "filter" "Filter rows of a csv file." $
-        liftA (Filter . T.fromStrict)
-            (argText "pattern" "<col>=<value>: Keep only rows where <col> is equal to <value>")
+        liftA Filter
+            (argText "pattern" "<col>=<value>: Keep only rows where <col> is equal to <value>" mempty)
 
     pretty = command "pretty" "Pretty-print a csv file to a more human-readable table" $
         liftA Pretty $ liftA2 PPOpt
@@ -40,15 +39,24 @@ mode = liftA2 (,) subcommand file
             (optional (optInt "repeat-header" 'r' "Repeat header after n lines"))
 
     select = command "select" "Show only selected columns." $
-        liftA (Select . T.fromStrict)
-            (argText "columns" "A comma-separated list of columns")
+        liftA Select
+            (argText "columns" "A comma-separated list of columns" mempty)
 
     command name description parser = Opt.command name $ Opt.info
-        (Opt.helper <*> parser)
+        (Opt.helper <*> (liftA2 (,) parser file))
         (Opt.header description)
 
-file :: Parser (Maybe FilePath)
-file = optional (argPath "file" "Read csv data from a file. If no file is specified, read from stdin instead")
+    file = optional (argPath "file" "Read csv data from a file. If no file is specified, read from stdin instead" mempty)
+
+    arg name description options = Opt.strArgument $ options
+        <> (Opt.metavar . T.unpack . T.toUpper) name
+        <> (Opt.help . T.unpack) description
+
+    argText name description options = fmap T.pack (arg name description options)
+
+    argPath name description options = fmap (fromText . T.toStrict) . argText name description $ options
+        <> Opt.action "file"
+
 
 
 main = do
