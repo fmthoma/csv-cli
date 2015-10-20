@@ -33,8 +33,10 @@ prettyPrint PPOpt{..} csv =
 formatRepeatedHeader :: Maybe Int -> Text -> [Text] -> [Text]
 formatRepeatedHeader maybeRepeat hd bd = case maybeRepeat of
     Nothing -> hd : sep : bd
-    Just n  -> sep : hd : sep : take n bd
-            ++ formatRepeatedHeader (Just n) hd (drop n bd)
+    Just n  -> go hd bd
+      where go _  [] = []
+            go hd bd = sep : hd : sep : take n bd
+                    ++ go hd (drop n bd)
   where
     sep = T.replicate (T.length hd) "═"
 
