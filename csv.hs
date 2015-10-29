@@ -1,8 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-import           Prelude hiding (FilePath)
+import           Prelude
 import           Control.Applicative
+import           Control.Monad
 import           Data.Foldable
 import qualified Data.List as L
 import           Data.Monoid
@@ -10,9 +11,10 @@ import           Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.IO as T
 import qualified Data.Text.Lazy as T
 import           Data.Optional
-import           Filesystem.Path.CurrentOS
 import qualified Options.Applicative as Opt
-import           Turtle hiding (Text)
+import           System.FilePath
+import           System.Directory
+import           Turtle hiding (Text, FilePath, (</>))
 
 import Text.Csv
 
@@ -54,15 +56,35 @@ mode = Opt.subparser (columns <> filter <> pretty <> select)
 
     argText name description options = fmap T.pack (arg name description options)
 
-    argPath name description options = fmap (fromText . T.toStrict) . argText name description $ options
-        <> Opt.action "file"
+    argPath name description options = fmap (T.unpack) . argText name description $ options
+        <> Opt.completer (Opt.mkCompleter csvFileCompletion)
+
+csvFileCompletion :: FilePath -> IO [FilePath]
+csvFileCompletion prefix = do
+    let (dir, filePrefix) = splitFileName prefix
+        showMetaFiles = filePrefix `elem` [".", ".."]
+        isFile file = doesFileExist (dir </> file)
+        isDir  file = doesDirectoryExist (dir </> file)
+        isCsv  file = takeExtension file == ".csv"
+        isMetaFile file = file `elem` [".", ".."]
+
+    directoryContents <- getDirectoryContents dir
+    csvFiles <- (filterM isFile . L.filter isCsv) directoryContents
+    subdirs  <- filterM isDir directoryContents
+    let candidates = if showMetaFiles
+                        then csvFiles ++ subdirs
+                        else L.filter (not . isMetaFile) (csvFiles ++ subdirs)
+
+    let matchingFiles = L.filter (filePrefix `L.isPrefixOf`) candidates
+
+    return (fmap (replaceFileName prefix) matchingFiles)
 
 
 
 main = do
     (command, maybeFile) <- options "Filters and pretty-prints CSV files" mode
     input <- case maybeFile of
-        Just file -> T.readFile (encodeString file)
+        Just file -> T.readFile file
         Nothing   -> T.getContents
     runCommand command input
 
