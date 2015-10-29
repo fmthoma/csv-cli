@@ -22,7 +22,7 @@ data Command
     = Columns
     | Filter { pattern :: Text }
     | Pretty { ppOptions :: PrettyPrintOptions }
-    | Select { cols :: Text }
+    | Select { invert :: Bool, cols :: Text }
 
 mode :: Opt.Parser (Command, Maybe FilePath)
 mode = Opt.subparser (columns <> filter <> pretty <> select)
@@ -40,7 +40,8 @@ mode = Opt.subparser (columns <> filter <> pretty <> select)
             (optional (opt "repeat-header" 'r' "Repeat header after n lines" mempty))
 
     select = command "select" "Show only selected columns." $
-        liftA Select
+        liftA2 Select
+            (switch "invert" 'v' "Invert the selection (all columns except the given ones)." mempty)
             (argText "columns" "A comma-separated list of columns" mempty)
 
     command name description parser = Opt.command name $ info description (liftA2 (,) parser file)
@@ -93,6 +94,12 @@ opt long short description options = Opt.option Opt.auto $ options
     <> Opt.short short
     <> Opt.help description
 
+switch :: String -> Char -> String -> Opt.Mod Opt.FlagFields Bool -> Opt.Parser Bool
+switch long short description options = Opt.switch $ options
+    <> Opt.long long
+    <> Opt.short short
+    <> Opt.help description
+
 
 
 
@@ -119,7 +126,10 @@ runCommand Pretty {..}
 
 runCommand Select {..}
     = withCsv $ \baseCsv ->
-        let selectedCols = fmap T.strip (T.splitOn "," cols)
+        let specifiedCols = fmap T.strip (T.splitOn "," cols)
+            selectedCols = if invert
+                then (getColumns . getHeader) baseCsv L.\\ specifiedCols
+                else specifiedCols
             (Just filteredCsv) = filterCols selectedCols baseCsv
         in  printCsv filteredCsv
 
