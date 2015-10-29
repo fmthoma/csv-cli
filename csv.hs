@@ -19,7 +19,7 @@ import           Text.Read (readMaybe)
 
 import Text.Csv
 
-import Turtle (options)
+
 
 data Command
     = Columns
@@ -28,7 +28,7 @@ data Command
     | Select { cols :: Text }
 
 mode :: Opt.Parser (Command, Maybe FilePath)
-mode = Opt.subparser (columns <> filter <> pretty <> select)
+mode = Opt.helper <*> Opt.subparser (columns <> filter <> pretty <> select)
   where
     columns = command "columns" "Show columns of a csv file." $
         pure Columns
@@ -90,7 +90,7 @@ csvFileCompletion prefix = do
 
 
 main = do
-    (command, maybeFile) <- options "Filters and pretty-prints CSV files" mode
+    (command, maybeFile) <- Opt.execParser (Opt.info mode (Opt.header "Filters and pretty-prints CSV files"))
     input <- case maybeFile of
         Just file -> T.readFile file
         Nothing   -> T.getContents
