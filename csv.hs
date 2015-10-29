@@ -52,17 +52,21 @@ mode = Opt.subparser (columns <> filter <> pretty <> select)
 
 
 
+info :: String -> Opt.Parser a -> Opt.ParserInfo a
 info description parser = Opt.info
     (Opt.helper <*> parser)
     (Opt.header description)
 
+arg :: String -> String -> Opt.Mod Opt.ArgumentFields String -> Opt.Parser String
 arg name description options = Opt.strArgument $ options
     <> (Opt.metavar . map toUpper) name
     <> Opt.help description
 
+argText :: String -> String -> Opt.Mod Opt.ArgumentFields String -> Opt.Parser Text
 argText name description options = fmap T.pack (arg name description options)
 
-argPath name description options = fmap (T.unpack) . argText name description $ options
+argPath :: String -> String -> Opt.Mod Opt.ArgumentFields String -> Opt.Parser FilePath
+argPath name description options = arg name description $ options
     <> Opt.completer (Opt.mkCompleter csvFileCompletion)
   where
     csvFileCompletion :: FilePath -> IO [FilePath]
@@ -85,6 +89,7 @@ argPath name description options = fmap (T.unpack) . argText name description $ 
 
         return (fmap (replaceFileName prefix) matchingFiles)
 
+opt :: Read a => String -> Char -> String -> Opt.Mod Opt.OptionFields a -> Opt.Parser a
 opt long short description options = Opt.option Opt.auto $ options
     <> (Opt.metavar . map toUpper) long
     <> Opt.long long
