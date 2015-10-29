@@ -5,17 +5,14 @@ import           Prelude
 import           Control.Applicative
 import           Control.Monad
 import           Data.Char (toUpper)
-import           Data.Foldable
 import qualified Data.List as L
 import           Data.Monoid
 import           Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.IO as T
 import qualified Data.Text.Lazy as T
-import           Data.Optional
 import qualified Options.Applicative as Opt
 import           System.FilePath
 import           System.Directory
-import           Text.Read (readMaybe)
 
 import Text.Csv
 
