@@ -4,6 +4,7 @@
 import           Prelude
 import           Control.Applicative
 import           Control.Monad
+import           Data.Char (toUpper)
 import           Data.Foldable
 import qualified Data.List as L
 import           Data.Monoid
@@ -14,10 +15,11 @@ import           Data.Optional
 import qualified Options.Applicative as Opt
 import           System.FilePath
 import           System.Directory
-import           Turtle hiding (Text, FilePath, (</>))
+import           Text.Read (readMaybe)
 
 import Text.Csv
 
+import Turtle (options)
 
 data Command
     = Columns
@@ -37,8 +39,8 @@ mode = Opt.subparser (columns <> filter <> pretty <> select)
 
     pretty = command "pretty" "Pretty-print a csv file to a more human-readable table" $
         liftA Pretty $ liftA2 PPOpt
-            (optional (optInt "max-width" 'w' "Break long lines after a number of characters"))
-            (optional (optInt "repeat-header" 'r' "Repeat header after n lines"))
+            (optional (opt "max-width" 'w' "Break long lines after a number of characters" mempty))
+            (optional (opt "repeat-header" 'r' "Repeat header after n lines" mempty))
 
     select = command "select" "Show only selected columns." $
         liftA Select
@@ -51,13 +53,19 @@ mode = Opt.subparser (columns <> filter <> pretty <> select)
     file = optional (argPath "file" "Read csv data from a file. If no file is specified, read from stdin instead" mempty)
 
     arg name description options = Opt.strArgument $ options
-        <> (Opt.metavar . T.unpack . T.toUpper) name
-        <> (Opt.help . T.unpack) description
+        <> (Opt.metavar . map toUpper) name
+        <> Opt.help description
 
     argText name description options = fmap T.pack (arg name description options)
 
     argPath name description options = fmap (T.unpack) . argText name description $ options
         <> Opt.completer (Opt.mkCompleter csvFileCompletion)
+
+    opt long short description options = Opt.option Opt.auto $ options
+        <> (Opt.metavar . map toUpper) long
+        <> Opt.long long
+        <> Opt.short short
+        <> Opt.help description
 
 csvFileCompletion :: FilePath -> IO [FilePath]
 csvFileCompletion prefix = do
