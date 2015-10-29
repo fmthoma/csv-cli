@@ -28,7 +28,7 @@ data Command
     | Select { cols :: Text }
 
 mode :: Opt.Parser (Command, Maybe FilePath)
-mode = Opt.helper <*> Opt.subparser (columns <> filter <> pretty <> select)
+mode = Opt.subparser (columns <> filter <> pretty <> select)
   where
     columns = command "columns" "Show columns of a csv file." $
         pure Columns
@@ -46,51 +46,56 @@ mode = Opt.helper <*> Opt.subparser (columns <> filter <> pretty <> select)
         liftA Select
             (argText "columns" "A comma-separated list of columns" mempty)
 
-    command name description parser = Opt.command name $ Opt.info
-        (Opt.helper <*> (liftA2 (,) parser file))
-        (Opt.header description)
+    command name description parser = Opt.command name $ info description (liftA2 (,) parser file)
 
     file = optional (argPath "file" "Read csv data from a file. If no file is specified, read from stdin instead" mempty)
 
-    arg name description options = Opt.strArgument $ options
-        <> (Opt.metavar . map toUpper) name
-        <> Opt.help description
 
-    argText name description options = fmap T.pack (arg name description options)
 
-    argPath name description options = fmap (T.unpack) . argText name description $ options
-        <> Opt.completer (Opt.mkCompleter csvFileCompletion)
+info description parser = Opt.info
+    (Opt.helper <*> parser)
+    (Opt.header description)
 
-    opt long short description options = Opt.option Opt.auto $ options
-        <> (Opt.metavar . map toUpper) long
-        <> Opt.long long
-        <> Opt.short short
-        <> Opt.help description
+arg name description options = Opt.strArgument $ options
+    <> (Opt.metavar . map toUpper) name
+    <> Opt.help description
 
-csvFileCompletion :: FilePath -> IO [FilePath]
-csvFileCompletion prefix = do
-    let (dir, filePrefix) = splitFileName prefix
-        showMetaFiles = filePrefix `elem` [".", ".."]
-        isFile file = doesFileExist (dir </> file)
-        isDir  file = doesDirectoryExist (dir </> file)
-        isCsv  file = takeExtension file == ".csv"
-        isMetaFile file = file `elem` [".", ".."]
+argText name description options = fmap T.pack (arg name description options)
 
-    directoryContents <- getDirectoryContents dir
-    csvFiles <- (filterM isFile . L.filter isCsv) directoryContents
-    subdirs  <- filterM isDir directoryContents
-    let candidates = if showMetaFiles
-                        then csvFiles ++ subdirs
-                        else L.filter (not . isMetaFile) (csvFiles ++ subdirs)
+argPath name description options = fmap (T.unpack) . argText name description $ options
+    <> Opt.completer (Opt.mkCompleter csvFileCompletion)
+  where
+    csvFileCompletion :: FilePath -> IO [FilePath]
+    csvFileCompletion prefix = do
+        let (dir, filePrefix) = splitFileName prefix
+            showMetaFiles = filePrefix `elem` [".", ".."]
+            isFile file = doesFileExist (dir </> file)
+            isDir  file = doesDirectoryExist (dir </> file)
+            isCsv  file = takeExtension file == ".csv"
+            isMetaFile file = file `elem` [".", ".."]
 
-    let matchingFiles = L.filter (filePrefix `L.isPrefixOf`) candidates
+        directoryContents <- getDirectoryContents dir
+        csvFiles <- (filterM isFile . L.filter isCsv) directoryContents
+        subdirs  <- filterM isDir directoryContents
+        let candidates = if showMetaFiles
+                            then csvFiles ++ subdirs
+                            else L.filter (not . isMetaFile) (csvFiles ++ subdirs)
 
-    return (fmap (replaceFileName prefix) matchingFiles)
+        let matchingFiles = L.filter (filePrefix `L.isPrefixOf`) candidates
+
+        return (fmap (replaceFileName prefix) matchingFiles)
+
+opt long short description options = Opt.option Opt.auto $ options
+    <> (Opt.metavar . map toUpper) long
+    <> Opt.long long
+    <> Opt.short short
+    <> Opt.help description
+
 
 
 
 main = do
-    (command, maybeFile) <- Opt.execParser (Opt.info mode (Opt.header "Filters and pretty-prints CSV files"))
+    (command, maybeFile) <- Opt.execParser (info "Filters and pretty-prints CSV files" mode)
     input <- case maybeFile of
         Just file -> T.readFile file
         Nothing   -> T.getContents
