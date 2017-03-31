@@ -20,7 +20,7 @@ import Text.Csv
 
 data Command
     = Columns
-    | Filter { pattern :: Text }
+    | Filter { invert :: Bool, pattern :: Text }
     | Pretty { ppOptions :: PrettyPrintOptions }
     | Select { invert :: Bool, cols :: Text }
 
@@ -31,7 +31,8 @@ mode = Opt.subparser (columns <> filter <> pretty <> select)
         pure Columns
 
     filter = command "filter" "Filter rows of a csv file." $
-        liftA Filter
+        liftA2 Filter
+            (switch "invert" 'v' "Invert the selection (all columns except the given ones)." mempty)
             (argText "pattern" "<col>=<value>: Keep only rows where <col> is equal to <value>" mempty)
 
     pretty = command "pretty" "Pretty-print a csv file to a more human-readable table" $
@@ -118,7 +119,10 @@ runCommand Columns
 runCommand Filter {..}
     = withCsv $ \baseCsv ->
         let (column, value) = T.tail <$> T.breakOn "=" pattern
-            filteredCsv = filterRows column (== value) baseCsv
+            predicate = if invert
+                then (/= value)
+                else (== value)
+            filteredCsv = filterRows column predicate baseCsv
         in printCsv filteredCsv
 
 runCommand Pretty {..}
