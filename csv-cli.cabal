@@ -22,7 +22,7 @@ executable csv
                      , RecordWildCards
                      , GeneralizedNewtypeDeriving
   build-depends:       base >=4.8
-                     , attoparsec
+                     , cassava
                      , directory
                      , filepath
                      , optparse-applicative
