@@ -23,6 +23,7 @@ data Command
     | Filter { invert :: Bool, pattern :: Text }
     | Pretty { ppOptions :: PrettyPrintOptions }
     | Select { invert :: Bool, cols :: Text }
+    | Sort   { col :: Text }
 
 mode :: Opt.Parser (Command, Maybe FilePath)
 mode = Opt.subparser (columns <> filter <> pretty <> select)
@@ -44,6 +45,10 @@ mode = Opt.subparser (columns <> filter <> pretty <> select)
         liftA2 Select
             (switch "invert" 'v' "Invert the selection (all columns except the given ones)." mempty)
             (argText "columns" "A comma-separated list of columns" mempty)
+
+    sort = command "sort" "" $
+        liftA Sort
+            (argText "column" "" mempty)
 
     command name description parser = Opt.command name $ info description (liftA2 (,) parser file)
 
@@ -134,8 +139,15 @@ runCommand Select {..}
             selectedCols = if invert
                 then (getColumns . getHeader) baseCsv L.\\ specifiedCols
                 else specifiedCols
-            (Just filteredCsv) = filterCols selectedCols baseCsv
+            Just filteredCsv = filterCols selectedCols baseCsv
         in  printCsv filteredCsv
+
+runCommand Sort {..}
+    = withCsv $ \baseCsv ->
+        let recs = getRecords baseCsv
+            sortedRecs = sortBy _ recs
+            sortedCsv = Csv (getHeader baseCsv, sortedRecs)
+        in  printCsv sortedCsv
 
 
 withCsv :: (Csv Text -> [Text]) -> Text -> IO ()
